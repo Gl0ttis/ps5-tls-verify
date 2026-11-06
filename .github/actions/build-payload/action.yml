@@ -1,0 +1,48 @@
+name: Build PS5 payload
+description: >-
+  Install LLVM 18 and the pinned ps5-payload-dev SDK, then build
+  ps5-tls-verify.elf.
+
+inputs:
+  sdk-version:
+    description: ps5-payload-dev/sdk release tag to build against.
+    required: false
+    default: v0.45
+
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM 18 toolchain
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          clang-18 lld-18 llvm-18 wget unzip
+
+    - name: Download pinned PS5 Payload SDK (${{ inputs.sdk-version }})
+      shell: bash
+      run: |
+        url="https://github.com/ps5-payload-dev/sdk/releases/download/${{ inputs.sdk-version }}/ps5-payload-sdk.zip"
+        echo "Fetching $url"
+        wget -q "$url" -O "${RUNNER_TEMP}/ps5-payload-sdk.zip"
+        mkdir -p "${RUNNER_TEMP}/ps5-sdk"
+        unzip -q "${RUNNER_TEMP}/ps5-payload-sdk.zip" -d "${RUNNER_TEMP}/ps5-sdk"
+
+    - name: Build
+      shell: bash
+      env:
+        LLVM_CONFIG: /usr/bin/llvm-config-18
+      run: |
+        set -euo pipefail
+        sdk_mk="$(find "${RUNNER_TEMP}/ps5-sdk" -type f -path '*/toolchain/prospero.mk' | head -n1)"
+        if [ -z "$sdk_mk" ]; then
+          echo "::error::prospero.mk not found in the SDK archive" >&2
+          exit 1
+        fi
+        export PS5_PAYLOAD_SDK="$(dirname "$(dirname "$sdk_mk")")"
+        echo "PS5_PAYLOAD_SDK=$PS5_PAYLOAD_SDK"
+        make clean
+        make
+        test -f ps5-tls-verify.elf
+        echo "Built artifact:"
+        ls -l ps5-tls-verify.elf

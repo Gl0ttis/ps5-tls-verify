@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: Validate PR title (Conventional Commits)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      # Squash merges use the PR title as the commit subject, so the
+      # title must be a valid Conventional Commit for semantic-release
+      # to version the merge correctly.
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build payload
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ps5-tls-verify.elf
+        uses: ./.github/actions/build-payload
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5-tls-verify-elf
+          path: ps5-tls-verify.elf
+          if-no-files-found: error

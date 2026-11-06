@@ -1,0 +1,11 @@
+# Build artifacts
+*.elf
+*.o
+*.bin
+*.prx
+*.sprx
+
+# Editor / OS cruft
+.vscode/
+.DS_Store
+*.swp
