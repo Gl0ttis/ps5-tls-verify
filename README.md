@@ -1,7 +1,8 @@
 # ps5-tls-verify
 
-Toggleable TLS verifier override for PS5. A single standalone `pldmgr`
-payload that walks every live process on the system, patches the
+Toggleable TLS verifier override for PS5. A single standalone payload
+(load via `elfldr` or `pldmgr`) that walks every live process on the
+system, patches the
 primary certificate-chain verifier in each of the TLS libraries it has
 loaded, and then stays resident to catch newly-spawned processes.
 
@@ -181,8 +182,32 @@ Output: `ps5-tls-verify.elf`.
 
 ## Deploy
 
-Upload and launch via `pldmgr`. The upload-slot filename must include
-the `.elf` extension or `pldmgr` returns HTTP 500.
+Two ways to load the payload. Both run it identically — the choice is
+just how the ELF reaches the console.
+
+### Option A — elfldr (one-shot)
+
+Send the ELF straight to the `elfldr` socket (port 9021). Nothing is
+written to disk; the payload runs once and (in patch mode) stays
+resident in the watch loop until SIGTERM or reboot.
+
+```
+# Via the SDK helper (uses socat under the hood):
+make deploy PS5_HOST=<PS5-IP>
+
+# …or without the SDK, pipe the ELF yourself:
+socat -t 9999999 - TCP:<PS5-IP>:9021 < ps5-tls-verify.elf
+# (nc works too: nc -q 99 <PS5-IP> 9021 < ps5-tls-verify.elf)
+```
+
+Use this for a quick run. To re-run (e.g. to toggle patches back off),
+just send it again.
+
+### Option B — pldmgr (managed slot)
+
+Upload into a `pldmgr` slot and launch it there. Survives in the slot
+so you can re-launch from the manager UI. The upload-slot filename must
+include the `.elf` extension or `pldmgr` returns HTTP 500.
 
 ```
 curl -X POST -H "X-PLDMGR-Request: 1" \
